@@ -4,14 +4,8 @@ Date: Thu, 9 Jan 2025 00:06:36 +0100
 Subject: [PATCH] Allow multiline strings in JS FFI (#25633)
 
 ---
- compiler/GHC/Parser.y                    |  4 +++
- docs/users_guide/9.14.1-notes.rst        |  2 ++
- testsuite/tests/javascript/T25633.hs     | 44 ++++++++++++++++++++++++
- testsuite/tests/javascript/T25633.stdout |  5 +++
- testsuite/tests/javascript/all.T         |  2 ++
- 5 files changed, 57 insertions(+)
- create mode 100644 testsuite/tests/javascript/T25633.hs
- create mode 100644 testsuite/tests/javascript/T25633.stdout
+ compiler/GHC/Parser.y | 4 ++++
+ 1 file changed, 4 insertions(+)
 
 diff --git a/compiler/GHC/Parser.y b/compiler/GHC/Parser.y
 index 4b1a4396d5ea..53a646fdba0f 100644
@@ -35,92 +29,5 @@ index 4b1a4396d5ea..53a646fdba0f 100644
  
  isUnicode :: Located Token -> Bool
  isUnicode (L _ (ITforall         iu)) = iu == UnicodeSyntax
-diff --git a/docs/users_guide/9.14.1-notes.rst b/docs/users_guide/9.14.1-notes.rst
-index a612639ae51a..c2e368cc846f 100644
---- a/docs/users_guide/9.14.1-notes.rst
-+++ b/docs/users_guide/9.14.1-notes.rst
-@@ -38,6 +38,8 @@ Language
- 
-   That will break the combination of :extension:`OverloadedRecordUpdate` with :extension:`RebindableSyntax`.
- 
-+* Multiline strings are now accepted in foreign imports. (#25157)
-+
- Compiler
- ~~~~~~~~
- 
-diff --git a/testsuite/tests/javascript/T25633.hs b/testsuite/tests/javascript/T25633.hs
-new file mode 100644
-index 000000000000..1d2413436315
---- /dev/null
-+++ b/testsuite/tests/javascript/T25633.hs
-@@ -0,0 +1,44 @@
-+{-# LANGUAGE MultilineStrings #-}
-+module Main where
-+
-+import GHC.Prim
-+import GHC.JS.Prim
-+import Foreign.C
-+import System.IO
-+
-+foreign import javascript
-+  """
-+  ((x) => x)
-+  """
-+  toJSDouble :: Double -> JSVal
-+
-+foreign import javascript 
-+  """
-+  (function (x) { 
-+    console.log(x); 
-+  })
-+  """
-+  multiLog :: JSVal -> IO ()
-+
-+foreign import javascript
-+  """
-+  ((x) => 
-+    x + ""
-+  )
-+  """
-+  jsToString :: JSVal -> JSVal
-+
-+foreign import ccall 
-+  """
-+  cos
-+  """ mycos :: CDouble -> CDouble
-+
-+main :: IO ()
-+main = do
-+  hSetBuffering stdout NoBuffering
-+
-+  multiLog $ toJSInt 5
-+  multiLog $ toJSString "Hello"
-+  putStrLn $ fromJSString $ jsToString $ toJSInt (- 5)
-+  multiLog $ jsToString $ toJSDouble 3.0
-+  print $ mycos 0 == 1 
-\ No newline at end of file
-diff --git a/testsuite/tests/javascript/T25633.stdout b/testsuite/tests/javascript/T25633.stdout
-new file mode 100644
-index 000000000000..2fc357b8c399
---- /dev/null
-+++ b/testsuite/tests/javascript/T25633.stdout
-@@ -0,0 +1,5 @@
-+5
-+Hello
-+-5
-+3
-+True
-\ No newline at end of file
-diff --git a/testsuite/tests/javascript/all.T b/testsuite/tests/javascript/all.T
-index e324dc878ca5..aff45ef554e5 100644
---- a/testsuite/tests/javascript/all.T
-+++ b/testsuite/tests/javascript/all.T
-@@ -25,3 +25,5 @@ test('T24495', normal, makefile_test, ['T24495'])
- 
- test('T23479', normal, makefile_test, ['T23479'])
- test('T24744', normal, makefile_test, ['T24744'])
-+
-+test('T25633', normal, compile_and_run, [''])
 -- 
-GitLab
-
+2.43.0
