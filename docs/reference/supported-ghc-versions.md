@@ -6,7 +6,7 @@ for each, though not all are cached or tested by CI):
 - 9.6.6 (TH is broken in mingwW64, but ucrt64 works)
 - 9.8.4
 - 9.10.1
-- 9.12.1
+- 9.12.3
 
 8.10.7 may still work with older nixpkgs versions, but is broken for
 nixpkgs-unstable.
@@ -25,7 +25,7 @@ really should use an instance of Nixpkgs provided by `haskell.nix` itself.
 | unstable         | `nixpkgs-unstable` | 9.6.7       | `ghc96` or `ghc967`   | Yes           |
 | unstable         | `nixpkgs-unstable` | 9.8.4       | `ghc98` or `ghc984`   | Yes           |
 | unstable         | `nixpkgs-unstable` | 9.10.3      | `ghc910` or `ghc9103` | Yes           |
-| unstable         | `nixpkgs-unstable` | 9.12.2      | `ghc912` or `ghc9122` | Yes           |
+| unstable         | `nixpkgs-unstable` | 9.12.3      | `ghc912` or `ghc9123` | Yes           |
 
 See [ci.nix](https://github.com/input-output-hk/haskell.nix/blob/master/ci.nix)
 for the source of truth about what is built and tested (in the off chance this
