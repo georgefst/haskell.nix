@@ -344,8 +344,8 @@ in {
 
                 ++ onGhcjs (fromUntil   "9.6.7" "9.7"  ./patches/ghc/ghc-9.6-js-support-this-unit-id-10819.patch)
 
-                ++ onWasm (fromUntil    "9.12"  "9.13" ./patches/ghc/ghc-9.12-wasm-shared-libs.patch)
-                ++ onWasm (fromUntil    "9.12"  "9.13" ./patches/ghc/ghc-9.12-wasm-keep-cafs.patch)
+                ++ onWasm (fromUntil    "9.12"  "9.12.3" ./patches/ghc/ghc-9.12-wasm-shared-libs.patch)
+                ++ onWasm (fromUntil    "9.12"  "9.12.3" ./patches/ghc/ghc-9.12-wasm-keep-cafs.patch)
 
                 # https://discourse.haskell.org/t/critical-code-generation-bug-with-ghc-9-12-3/13505
                 ++ fromUntil "9.12.3" "9.12.4" ./patches/ghc/ghc-9.12.3-revert-division-by-constants.patch
