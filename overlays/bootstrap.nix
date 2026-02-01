@@ -347,6 +347,9 @@ in {
                 ++ onWasm (fromUntil    "9.12"  "9.13" ./patches/ghc/ghc-9.12-wasm-shared-libs.patch)
                 ++ onWasm (fromUntil    "9.12"  "9.13" ./patches/ghc/ghc-9.12-wasm-keep-cafs.patch)
 
+                # https://discourse.haskell.org/t/critical-code-generation-bug-with-ghc-9-12-3/13505
+                ++ fromUntil "9.12.3" "9.12.4" ./patches/ghc/ghc-9.12.3-revert-division-by-constants.patch
+
                 # See https://github.com/IntersectMBO/plutus/issues/7415#issuecomment-3531989244
                 ++ fromUntil "9.6" "9.9" ./patches/ghc/ghc-profiling-fix.patch
 
