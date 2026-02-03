@@ -1,0 +1,217 @@
+diff --git a/compiler/GHC.hs b/compiler/GHC.hs
+index 47079a4559..8415aa6c11 100644
+--- a/compiler/GHC.hs
++++ b/compiler/GHC.hs
+@@ -737,6 +737,7 @@ setTopSessionDynFlags dflags = do
+                   wasmInterpBrowser = gopt Opt_GhciBrowser dflags,
+                   wasmInterpBrowserHost = ghciBrowserHost dflags,
+                   wasmInterpBrowserPort = ghciBrowserPort dflags,
++                  wasmInterpBrowserStaticFileServer = ghciBrowserStaticFileServer dflags,
+                   wasmInterpBrowserRedirectWasiConsole = gopt Opt_GhciBrowserRedirectWasiConsole dflags,
+                   wasmInterpBrowserPuppeteerLaunchOpts = ghciBrowserPuppeteerLaunchOpts dflags,
+                   wasmInterpBrowserPlaywrightBrowserType = ghciBrowserPlaywrightBrowserType dflags,
+diff --git a/compiler/GHC/Driver/DynFlags.hs b/compiler/GHC/Driver/DynFlags.hs
+index 05483271ac..3cf77a5298 100644
+--- a/compiler/GHC/Driver/DynFlags.hs
++++ b/compiler/GHC/Driver/DynFlags.hs
+@@ -411,6 +411,7 @@ data DynFlags = DynFlags {
+   -- wasm ghci browser mode
+   ghciBrowserHost                  :: !String,
+   ghciBrowserPort                  :: !Int,
++  ghciBrowserStaticFileServer      :: !Bool,
+   ghciBrowserPuppeteerLaunchOpts   :: !(Maybe String),
+   ghciBrowserPlaywrightBrowserType :: !(Maybe String),
+   ghciBrowserPlaywrightLaunchOpts  :: !(Maybe String),
+@@ -702,6 +703,7 @@ defaultDynFlags mySettings =
+ 
+         ghciBrowserHost = "127.0.0.1",
+         ghciBrowserPort = 0,
++        ghciBrowserStaticFileServer = False,
+         ghciBrowserPuppeteerLaunchOpts = Nothing,
+         ghciBrowserPlaywrightBrowserType = Nothing,
+         ghciBrowserPlaywrightLaunchOpts = Nothing,
+diff --git a/compiler/GHC/Driver/Session.hs b/compiler/GHC/Driver/Session.hs
+index 601e153140..0b4ad3b97f 100644
+--- a/compiler/GHC/Driver/Session.hs
++++ b/compiler/GHC/Driver/Session.hs
+@@ -1852,6 +1852,8 @@ dynamic_flags_deps = [
+       $ hasArg $ \f d -> d { ghciBrowserHost = f }
+   , make_ord_flag defGhciFlag "fghci-browser-port"
+       $ intSuffix $ \n d -> d { ghciBrowserPort = n }
++  , make_ord_flag defGhciFlag "fghci-browser-static-file-server"
++      $ noArg $ \d -> d { ghciBrowserStaticFileServer = True }
+   , make_ord_flag defGhciFlag "fghci-browser-puppeteer-launch-opts"
+       $ hasArg $ \f d -> d { ghciBrowserPuppeteerLaunchOpts = Just f }
+   , make_ord_flag defGhciFlag "fghci-browser-playwright-browser-type"
+diff --git a/compiler/GHC/Runtime/Interpreter/Types.hs b/compiler/GHC/Runtime/Interpreter/Types.hs
+index 6c6f9ee9c4..5f87721982 100644
+--- a/compiler/GHC/Runtime/Interpreter/Types.hs
++++ b/compiler/GHC/Runtime/Interpreter/Types.hs
+@@ -221,6 +221,7 @@ data WasmInterpConfig = WasmInterpConfig
+   , wasmInterpBrowser                      :: !Bool
+   , wasmInterpBrowserHost                  :: !String
+   , wasmInterpBrowserPort                  :: !Int
++  , wasmInterpBrowserStaticFileServer      :: !Bool
+   , wasmInterpBrowserRedirectWasiConsole   :: !Bool
+   , wasmInterpBrowserPuppeteerLaunchOpts   :: !(Maybe String)
+   , wasmInterpBrowserPlaywrightBrowserType :: !(Maybe String)
+diff --git a/compiler/GHC/Runtime/Interpreter/Wasm.hs b/compiler/GHC/Runtime/Interpreter/Wasm.hs
+index 645aba9271..2f339835b2 100644
+--- a/compiler/GHC/Runtime/Interpreter/Wasm.hs
++++ b/compiler/GHC/Runtime/Interpreter/Wasm.hs
+@@ -52,6 +52,7 @@ spawnWasmInterp WasmInterpConfig {..} = do
+   let dyld_env =
+         [("GHCI_BROWSER", "1") | wasmInterpBrowser]
+         ++ [("GHCI_BROWSER_HOST", wasmInterpBrowserHost), ("GHCI_BROWSER_PORT", show wasmInterpBrowserPort)]
++        ++ [("GHCI_BROWSER_STATIC_FILE_SERVER", "1") | wasmInterpBrowserStaticFileServer]
+         ++ [("GHCI_BROWSER_REDIRECT_WASI_CONSOLE", "1") | wasmInterpBrowserRedirectWasiConsole]
+         ++ [("GHCI_BROWSER_PUPPETEER_LAUNCH_OPTS", f) | f <- maybeToList wasmInterpBrowserPuppeteerLaunchOpts]
+         ++ [("GHCI_BROWSER_PLAYWRIGHT_BROWSER_TYPE", f) | f <- maybeToList wasmInterpBrowserPlaywrightBrowserType]
+diff --git a/docs/users_guide/wasm.rst b/docs/users_guide/wasm.rst
+index a4619261c2..25cc19d293 100644
+--- a/docs/users_guide/wasm.rst
++++ b/docs/users_guide/wasm.rst
+@@ -193,6 +193,21 @@ See below for other optional GHC flags of wasm ghci browser mode:
+     Specify the port that the ``dyld`` HTTP server should listen on.
+     Defaults to a random idle port.
+ 
++.. ghc-flag:: -fghci-browser-static-file-server
++    :shortdesc: Wasm ghci browser mode static file server
++    :type: dynamic
++
++    :default: off
++
++    Specifies if a static file server should be used to deliver
++    additional frontend assets (e.g. `.css`, `.png`, `.html`, `.ico`)
++    from the current working directory.
++
++    Defaults to off.
++
++    Note: Static file servers can present security concerns,
++    recommended usage is only for local development.
++
+ .. ghc-flag:: -fghci-browser-redirect-wasi-console
+     :shortdesc: Redirect wasi console stdout/stderr back to host ghci.
+     :type: dynamic
+diff --git a/utils/jsffi/dyld.mjs b/utils/jsffi/dyld.mjs
+index 8ccb47d8e9..677f347076 100755
+--- a/utils/jsffi/dyld.mjs
++++ b/utils/jsffi/dyld.mjs
+@@ -501,6 +501,7 @@ class DyLDRPCServer {
+   constructor({
+     host,
+     port,
++    staticFileServer,
+     dyldPath,
+     libdir,
+     ghciSoPath,
+@@ -581,10 +582,97 @@ args.rpc.opened.then(() => main(args));
+         return;
+       }
+ 
+-      res.writeHead(404, {
+-        "Content-Type": "text/plain",
+-      });
+-      res.end("not found");
++      if (staticFileServer) {
++        // Common MIME types
++        const mimeTypes = {
++          '.html': 'text/html',
++          '.css': 'text/css',
++          '.js': 'text/javascript',
++          '.json': 'application/json',
++          '.png': 'image/png',
++          '.jpg': 'image/jpeg',
++          '.jpeg': 'image/jpeg',
++          '.gif': 'image/gif',
++          '.svg': 'image/svg+xml',
++          '.ico': 'image/x-icon',
++          '.txt': 'text/plain',
++          '.pdf': 'application/pdf',
++          '.woff': 'font/woff',
++          '.woff2': 'font/woff2',
++          '.ttf': 'font/ttf',
++          '.eot': 'application/vnd.ms-fontobject',
++          '.otf': 'font/otf',
++          '.mp4': 'video/mp4',
++          '.webm': 'video/webm',
++          '.mp3': 'audio/mpeg',
++          '.wav': 'audio/wav'
++        };
++        // Get content type or default to octet-stream
++        const contentType = mimeTypes[path.extname(req.url)] || 'application/octet-stream';
++
++        try {
++          // 0. Strip trailing slash if it exists in the host.
++          if (host.endsWith('/')) {
++            host = host.slice(0, -1);
++          }
++          // 1. Parse the URL (handles decoding automatically)
++          const baseUrl = host + ':' + port;
++          const parsedUrl = new URL(req.url, baseUrl);
++
++          // 2. Get the decoded pathname
++          let requestedPath = parsedUrl.pathname;
++
++          // 3. Remove trailing slash and handle root
++          if (requestedPath.endsWith('/')) {
++             requestedPath = requestedPath.slice(0, -1);
++          }
++
++          if (requestedPath === '') {
++              requestedPath = '/index.html';
++          }
++
++          // 4. Security: Prevent directory traversal, perform safety checks
++          const baseDir = process.cwd();
++          const fullPath = path.join(baseDir, requestedPath);
++          const resolvedPath = path.resolve(fullPath);
++
++          // Critical: Verify path stays within base directory
++          if (!resolvedPath.startsWith(path.resolve(baseDir))) {
++            res.writeHead(403);
++            return res.end('Directory traversal blocked');
++          }
++
++          // Check for null bytes (extra safety)
++          if (resolvedPath.includes('\0')) {
++            res.writeHead(400);
++            return res.end('Invalid path');
++          }
++
++          // 5. Read file
++          fs.readFile(resolvedPath, (err, content) => {
++            if (err) {
++                if (err.code === 'ENOENT') {
++                    res.writeHead(404, { 'Content-Type': 'text/html' });
++                    res.end('<h1>404 Not Found</h1>');
++                } else {
++                    res.writeHead(500);
++                    res.end(`Server Error: ${err.code}`);
++                }
++            } else {
++                res.writeHead(200, { 'Content-Type': contentType });
++                res.end(content);
++            }
++          });
++        } catch (e) {
++          res.writeHead(500);
++          res.end(`Server Error: ${e.messsage}`);
++        }
++      } else {
++        res.writeHead(404, {
++          "Content-Type": "text/plain",
++        });
++        res.end("not found");
++      }
+     });
+ 
+     this.closed = new Promise((res) => this.#server.on("close", res));
+@@ -1159,6 +1247,7 @@ export async function main({ rpc, libdir, ghciSoPath, args }) {
+   const server = new DyLDRPCServer({
+     host: process.env.GHCI_BROWSER_HOST || "127.0.0.1",
+     port: process.env.GHCI_BROWSER_PORT || 0,
++    staticFileServer: process.env.GHCI_BROWSER_STATIC_FILE_SERVER || false,
+     dyldPath: import.meta.filename,
+     libdir,
+     ghciSoPath,

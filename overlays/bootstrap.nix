@@ -348,6 +348,9 @@ in {
                 ++ onWasm (fromUntil    "9.12"  "9.12.3" ./patches/ghc/ghc-9.12-wasm-shared-libs.patch)
                 ++ onWasm (fromUntil    "9.12"  "9.12.3" ./patches/ghc/ghc-9.12-wasm-keep-cafs.patch)
 
+                # https://gitlab.haskell.org/ghc/ghc/-/merge_requests/15251
+                ++ onWasm (fromUntil "9.14" "9.16" ./patches/ghc/wasm-browser-mode-file-server.patch)
+
                 # See https://github.com/IntersectMBO/plutus/issues/7415#issuecomment-3531989244
                 ++ fromUntil "9.6" "9.9" ./patches/ghc/ghc-profiling-fix.patch
 
